@@ -5,10 +5,10 @@ A lightweight Rust utility for controlling CPU fan speed on ASUS Zenbook laptops
 ## Overview
 
 This daemon monitors the CPU package temperature and automatically adjusts the CPU fan control mode:
-- **Above threshold (≥90°C)**: Disables PWM control, forcing the fan to run at maximum speed
-- **Below threshold (<90°C)**: Reverts to automatic PWM control for normal fan operation
+- **Above threshold (≥88°C)**: Disables PWM control, forcing the fan to run at maximum speed
+- **Below threshold (<88°C)**: Reverts to automatic PWM control for normal fan operation
 
-The utility polls the temperature every 2 seconds and adjusts fan behavior accordingly.
+The utility polls the temperature every 2000ms (2 seconds) by default and adjusts fan behavior accordingly.
 
 ## Tested Hardware
 
@@ -57,17 +57,36 @@ The utility requires root privileges to write to sysfs fan control files:
 sudo ./target/release/zenbook-fanctl-rs
 ```
 
+### Command-Line Options
+
+The utility supports the following command-line arguments:
+
+```bash
+sudo ./target/release/zenbook-fanctl-rs [OPTIONS]
+```
+
+**Options:**
+- `-p, --polling-ms <POLLING_MS>`: Package temperature polling period in milliseconds (default: 2000)
+- `-t, --temp-max <TEMP_MAX>`: Max package temperature threshold in Celsius before toggling PWM off (default: 88)
+- `-h, --help`: Print help information
+- `-V, --version`: Print version information
+
+**Examples:**
+
+```bash
+# Use default settings (88°C threshold, 2000ms polling)
+sudo ./target/release/zenbook-fanctl-rs
+
+# Custom configuration
+sudo ./target/release/zenbook-fanctl-rs --temp-max 85 --polling-ms 1000
+```
+
 ## Configuration
 
-You can modify the following constants in `src/main.rs` to customize behavior:
+You can customize the utility's behavior using command-line arguments (see [Command-Line Options](#command-line-options) above):
 
-- `CPU_TEMP_THRESHOLD`: Temperature threshold in Celsius (default: 90°C)
-- `POLL_PERIOD_SECS`: Polling interval in seconds (default: 2 seconds)
-
-After modifying, rebuild the project:
-```bash
-cargo build --release
-```
+- Temperature threshold: Use `--temp-max` flag (default: 88°C)
+- Polling interval: Use `--polling-ms` flag (default: 2000ms)
 
 ## Running as a System Service
 
@@ -91,6 +110,8 @@ After=multi-user.target
 [Service]
 Type=simple
 ExecStart=/usr/local/bin/zenbook-fanctl-rs
+# Optional: Customize with command-line arguments
+# ExecStart=/usr/local/bin/zenbook-fanctl-rs --temp-max 85 --polling-ms 1000
 Restart=always
 RestartSec=10
 
@@ -121,10 +142,10 @@ sudo journalctl -u zenbook-fanctl.service -f
 
 1. **Thermal Zone Detection**: Scans `/sys/class/thermal/` for the `acpitz` thermal zone
 2. **Fan Control Detection**: Locates the CPU fan PWM control at `/sys/devices/platform/asus-nb-wmi/hwmon/*/pwm1_enable`
-3. **Temperature Monitoring**: Reads temperature from the thermal zone every 2 seconds
+3. **Temperature Monitoring**: Reads temperature from the thermal zone at the configured polling interval
 4. **Fan Control**:
-   - Writes `0` to `pwm1_enable` to disable PWM (full speed)
-   - Writes `2` to `pwm1_enable` to enable automatic PWM control
+   - Writes `0` to `pwm1_enable` to disable PWM (full speed) when temperature ≥ threshold
+   - Writes `2` to `pwm1_enable` to enable automatic PWM control when temperature < threshold
 
 ## Troubleshooting
 

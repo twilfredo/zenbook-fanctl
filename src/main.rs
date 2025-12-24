@@ -1,11 +1,21 @@
+use clap::Parser;
 use std::io::{self, ErrorKind};
 use std::path::{Path, PathBuf};
 use std::{fs, time::Duration};
 
-const POLL_PERIOD_SECS: u64 = 2;
-/// When this threshold is surpassed, the CPU fan will be at
-/// max RPM
-const CPU_TEMP_THRESHOLD: u64 = 90;
+#[derive(Parser, Debug)]
+#[command(version)]
+struct Args {
+    /// Package temperature polling period (ms). Default is
+    /// 2 seconds.
+    #[arg(short, long, default_value_t = 2000)]
+    polling_ms: u64,
+
+    /// Max package temperature threshold before toggling
+    /// PWM off. Default is 88 degrees celcius.
+    #[arg(short, long, default_value_t = 88)]
+    temp_max: u64,
+}
 
 #[derive(PartialEq, Debug, Clone)]
 enum CpuFanState {
@@ -103,6 +113,8 @@ fn cpu_fan_set_auto(path: &PathBuf) -> io::Result<()> {
 }
 
 fn main() {
+    let args = Args::parse();
+
     println!("Starting Zenbook Fanctl Service");
 
     let pwm_path = get_cpu_fan_pwm_path().unwrap_or_else(|_| {
@@ -121,11 +133,11 @@ fn main() {
     let mut prev_state = current_state.clone();
     loop {
         let Ok(temp) = get_thermal_zone_temp(&acpitz_path) else {
-            std::thread::sleep(Duration::from_secs(POLL_PERIOD_SECS));
+            std::thread::sleep(Duration::from_millis(args.polling_ms));
             continue;
         };
 
-        if temp >= CPU_TEMP_THRESHOLD {
+        if temp >= args.temp_max {
             current_state = CpuFanState::PwmOff;
         } else {
             current_state = CpuFanState::PwmOn;
@@ -148,6 +160,6 @@ fn main() {
             }
         }
         prev_state = current_state;
-        std::thread::sleep(Duration::from_secs(POLL_PERIOD_SECS));
+        std::thread::sleep(Duration::from_millis(args.polling_ms));
     }
 }
