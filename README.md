@@ -2,6 +2,10 @@
 
 A lightweight Rust utility for controlling CPU fan speed on ASUS Zenbook laptops based on CPU package temperature (acpitz thermal zone).
 
+## Why This Tool Exists
+
+By default, the ASUS Zenbook's automatic fan control does not allow the CPU fan to reach 100% speed, even under heavy thermal load. This limitation may cause the CPU to throttle at high temperatures (approaching 100°C) as observed on the Intel 185H (when compiling the linux kernel with all cores), reducing clock speeds and performance. This utility attempts to address that issue by forcing the fan to maximum speed when temperatures exceed a configurable threshold. Which **may** squeeze out a bit more performance under sustained high load.
+
 ## Overview
 
 This daemon monitors the CPU package temperature and automatically adjusts the CPU fan control mode:
