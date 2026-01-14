@@ -8,8 +8,15 @@ use std::{fs, time::Duration};
 struct Args {
     /// Package temperature polling period (ms). Default is
     /// 2 seconds.
-    #[arg(short, long, default_value_t = 2000)]
+    #[arg(short, long, default_value_t = 1000)]
     polling_ms: u64,
+
+    /// Iteration of polling_ms over polling_ms turn off PWM (max RPM).
+    /// For example, if iters_over_thresh is 2, PWM adn polling_ms is 1000,
+    /// then PWM will turn off when the CPU temperature has been over the
+    /// threshold for 2000ms.
+    #[arg(short, long, default_value_t = 4)]
+    iters_over_thresh: u64,
 
     /// Max package temperature threshold before toggling
     /// PWM off. Default is 88 degrees celcius.
@@ -114,6 +121,7 @@ fn cpu_fan_set_auto(path: &PathBuf) -> io::Result<()> {
 
 fn main() {
     let args = Args::parse();
+    let mut iter = 0;
 
     println!("Starting Zenbook Fanctl Service");
 
@@ -138,6 +146,12 @@ fn main() {
         };
 
         if temp >= args.temp_max {
+            if iter < args.iters_over_thresh {
+                iter += 1;
+                std::thread::sleep(Duration::from_millis(args.polling_ms));
+                continue;
+            }
+            iter = 0;
             current_state = CpuFanState::PwmOff;
         } else {
             current_state = CpuFanState::PwmOn;
